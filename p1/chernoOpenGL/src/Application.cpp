@@ -99,6 +99,46 @@ static unsigned int CreateShaderProgram(const std::string& vertexShader, const s
 	return program;
 }
 
+static void PrepareVertices() {
+	//triangle verticies
+	float positions[] = {
+		-0.5f, -0.5f,	//0
+		 0.5f,  -0.5f,	//1
+		 0.5f, 0.5f,	//2
+		 -0.5f, 0.5f,	//3
+	};
+
+	//allocate a buffer to use
+	unsigned int buffer;
+	glGenBuffers(1, &buffer);
+
+	//bind the buffer to the GL_ARRAY_BUFFER target
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+
+	//populate the buffer with the actual data - optimised as static & for drawing
+	auto positionsLength = sizeof(positions) / sizeof(*positions);
+	glBufferData(GL_ARRAY_BUFFER, positionsLength * sizeof(float), positions, GL_STATIC_DRAW);
+
+	//describes the layout of an individual vertex (contains two floats)
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+
+	//specify that we are using this vertex array
+	glEnableVertexAttribArray(0);
+}
+
+static void PrepareIndexBuffer() {
+	//Index Buffers in OpenGL
+	unsigned int indices[] = {
+		0, 1, 2,
+		2, 3, 0,
+	};
+	unsigned int ibo;
+	glGenBuffers(1, &ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	auto indicesLength = sizeof(indices) / sizeof(*indices);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesLength * sizeof(unsigned int), indices, GL_STATIC_DRAW);
+}
+
 int main(void)
 {
 	/* Initialize the library */
@@ -122,29 +162,8 @@ int main(void)
 
 	std::cout << glGetString(GL_VERSION) << std::endl;
 
-	//triangle verticies
-	float positions[6] = {
-		-0.5f, -0.5f,
-		 0.0f,  0.5f,
-		 0.5f, -0.5f
-	};
-
-	//allocate a buffer to use
-	unsigned int buffer;
-	glGenBuffers(1, &buffer);
-
-	//bind the buffer to the GL_ARRAY_BUFFER target
-	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-
-	//populate the buffer with the actual data - optimised as static & for drawing
-	auto positionsLength = sizeof(positions) / sizeof(*positions);
-	glBufferData(GL_ARRAY_BUFFER, positionsLength * sizeof(float), positions, GL_STATIC_DRAW);
-
-	//describes the layout of an individual vertex (contains two floats)
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
-
-	//specify that we are using this vertex array
-	glEnableVertexAttribArray(0);
+	PrepareVertices();
+	PrepareIndexBuffer();
 
 	auto shaderSource = ParseShader("res/shaders/basic.shader");
 	auto programId = CreateShaderProgram(shaderSource.VertexSource, shaderSource.FragmentSource);
@@ -155,19 +174,7 @@ int main(void)
 	{
 		/* Render here */
 		glClear(GL_COLOR_BUFFER_BIT);
-
-		//for (auto i = 0; i < 6; i++) {
-		//	positions[i] = positions[i] * -1;
-		//}
-
-		//old school openGL
-		//glBegin(GL_TRIANGLES);
-		//glVertex2f(-0.5f, -0.5f);
-		//glVertex2f(0.0f, 0.5f);
-		//glVertex2f(0.5f, -0.5f);
-		//glEnd();
-
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
