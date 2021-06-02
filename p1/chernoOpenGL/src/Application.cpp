@@ -136,11 +136,18 @@ static void PrepareVertices() {
 	auto positionsLength = sizeof(positions) / sizeof(*positions);
 	glBufferData(GL_ARRAY_BUFFER, positionsLength * sizeof(float), positions, GL_STATIC_DRAW);
 
-	//describes the layout of an individual vertex (contains two floats)
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+	//using opengl core requires a vertex array before we specify the vertex attrib layout
+	unsigned int vao;
+	GLCall(glGenVertexArrays(1, &vao));
+	GLCall(glBindVertexArray(vao));
 
+	//describes the layout of an individual vertex (contains two floats)
+	GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0));
 	//specify that we are using this vertex array
-	glEnableVertexAttribArray(0);
+	GLCall(glEnableVertexAttribArray(0));
+
+
+
 }
 
 static void PrepareIndexBuffer() {
@@ -158,7 +165,7 @@ static void PrepareIndexBuffer() {
 
 static void UpdateIncrementExample(float& r, float& increment) {
 	if (r > 1.0f) {
-		increment = -0.05;
+		increment = -0.05f;
 	}
 	else if (r < 0.05f) {
 		increment = 0.05f;
@@ -172,6 +179,10 @@ int main(void)
 	/* Initialize the library */
 	if (!glfwInit())
 		return -1;
+
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	/* Create a windowed mode window and its OpenGL context */
 	GLFWwindow* window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
@@ -212,7 +223,7 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		//set the variable in the shader code
-		glUniform4f(location_u_Color, r, 1.0, 0.5, 0.2);
+		glUniform4f(location_u_Color, r, 1.0f, 0.5f, 0.2f);
 
 		GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr));
 
