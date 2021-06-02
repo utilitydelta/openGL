@@ -156,6 +156,17 @@ static void PrepareIndexBuffer() {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesLength * sizeof(unsigned int), indices, GL_STATIC_DRAW);
 }
 
+static void UpdateIncrementExample(float& r, float& increment) {
+	if (r > 1.0f) {
+		increment = -0.05;
+	}
+	else if (r < 0.05f) {
+		increment = 0.05f;
+	}
+
+	r += increment;
+}
+
 int main(void)
 {
 	/* Initialize the library */
@@ -172,6 +183,7 @@ int main(void)
 
 	/* Make the window's context current */
 	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1);
 
 	if (glewInit() != GLEW_OK) {
 		throw;
@@ -186,12 +198,25 @@ int main(void)
 	auto programId = CreateShaderProgram(shaderSource.VertexSource, shaderSource.FragmentSource);
 	glUseProgram(programId);
 
+	//get reference to the 'uniform' in the shader called u_Color
+	int location_u_Color = glGetUniformLocation(programId, "u_Color");
+	ASSERT(location_u_Color != -1);
+
+	float r = 0.0f;
+	float increment = 0.05f;
+
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
 		/* Render here */
 		glClear(GL_COLOR_BUFFER_BIT);
-		GLCall(glDrawElements(GL_TRIANGLES, 6, GL_INT, nullptr)); //DELIBERATE ERROR
+
+		//set the variable in the shader code
+		glUniform4f(location_u_Color, r, 1.0, 0.5, 0.2);
+
+		GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr));
+
+		UpdateIncrementExample(r, increment);
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
