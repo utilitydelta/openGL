@@ -16,17 +16,23 @@ static GLuint SetupTriangle() {
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-	//Add data
+	//Add data (x,y,color)
 	GLfloat verticies[] = {
-		-1.0f, -1.0f,
-		1.0f, -1.0f,
-		0.0f, 1.0f
+		-1.0f, -1.0f, 1.0f, 0.0f, 0.0f,
+		1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
 	};
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat), &verticies, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 5  * 3 * sizeof(GLfloat), &verticies, GL_STATIC_DRAW);
 
 	//setup vertex attribute data which is the input to the vertex shader
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0); //MAYBE !! GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0));
 	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
+	//The fifth parameter is set to 5*sizeof(float) now, because each vertex consists of 5 floating point 
+	//attribute values. The offset of 2*sizeof(float) for the color attribute is there because each vertex 
+	//starts with 2 floating point values for the position that it has to skip over.
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), 0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)(2 * sizeof(float)));
 
 	//finished setup, can unbind
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -43,6 +49,10 @@ static GLuint CompileShader(const char* source, int type) {
 	int result;
 	glGetShaderiv(shaderId, GL_COMPILE_STATUS, &result);
 	if (result == GL_FALSE) {
+		int length = 1024;
+		char log[1024] = { 0 };
+		glGetShaderInfoLog(shaderId, length, &length, log);
+		std::cout << log << std::endl;
 		throw;
 	}
 	return shaderId;
@@ -51,11 +61,14 @@ static GLuint CompileShader(const char* source, int type) {
 static GLuint CreateVertexShader() {
 	const char* source =
 		"\n #version 330 core"
-		"\n layout (location = 0) in vec4 position; " //verticies input from vao
+		"\n layout(location=0) in vec2 position; " //https://stackoverflow.com/questions/4635913/explicit-vs-automatic-attribute-location-binding-for-opengl-shaders/4638906
+		"\n layout(location=1) in vec3 color; "
+		"\n out vec3 Color; "
 		"\n uniform float scaleFactor; "
 		"\n void main () "
 		"\n { "
-		"\n  gl_Position = vec4(scaleFactor*position.x, scaleFactor*position.y, position.z, 1.0); " //gl_Position is built into open gl vertex shader (an out var)
+		"\n  Color = color; "
+		"\n  gl_Position = vec4(scaleFactor*position.x, scaleFactor*position.y, 0.0, 1.0); " //gl_Position is built into open gl vertex shader (an out var)
 		"\n } ";
 	return CompileShader(source, GL_VERTEX_SHADER);
 }
@@ -63,11 +76,12 @@ static GLuint CreateVertexShader() {
 static GLuint CreateFragmentShader() {
 	const char* source =
 		"\n #version 330 core"
-		"\n layout (location = 0) out vec4 color; " //only 1 output variable (the pixel colour), can be called whatever
+		"\n in vec3 Color; "
+		"\n out vec4 outColor; " //only 1 output variable (the pixel colour), can be called whatever
 		"\n uniform vec4 triangleColor; " //allow input variable to change the colour dynamically
 		"\n void main () "
 		"\n { "
-		"\n  color = triangleColor; "
+		"\n  outColor = vec4(Color, 1.0); "
 		"\n } ";
 	return CompileShader(source, GL_FRAGMENT_SHADER);
 }
@@ -96,8 +110,6 @@ static GLuint CreateProgram() {
 
 	//checks to see whether the executables contained in program can execute given the current OpenGL state
 	glValidateProgram(programId);
-
-	//TODO: error handling on link errors
 
 	//detach or shaders now its linked
 	glDetachShader(programId, vertexShaderId);
