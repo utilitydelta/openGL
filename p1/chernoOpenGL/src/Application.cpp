@@ -4,23 +4,9 @@
 #include <fstream>
 #include <string>
 #include <sstream>
-
-#define ASSERT(x) if (!(x)) __debugbreak();
-#define GLCall(x) GLClearError();\
-	x;\
-	ASSERT(GLLogCall(#x, __FILE__, __LINE__))
-
-static void GLClearError() {
-	while (glGetError() != GL_NO_ERROR);
-}
-
-static bool GLLogCall(const char* function, const char* file, int line) {
-	while (auto err = glGetError()) {
-		std::cout << "OpenGL Error: " << err << " function: " << function << " file: " << file << " line: " << line << std::endl;
-		return false;
-	}
-	return true;
-}
+#include "Renderer.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
 
 struct ShaderProgramSource {
 	std::string VertexSource;
@@ -116,53 +102,6 @@ static unsigned int CreateShaderProgram(const std::string& vertexShader, const s
 	return program;
 }
 
-static void PrepareVertices() {
-	//triangle verticies
-	float positions[] = {
-		-0.5f, -0.5f,	//0
-		 0.5f,  -0.5f,	//1
-		 0.5f, 0.5f,	//2
-		 -0.5f, 0.5f,	//3
-	};
-
-	//allocate a buffer to use
-	unsigned int buffer;
-	glGenBuffers(1, &buffer);
-
-	//bind the buffer to the GL_ARRAY_BUFFER target
-	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-
-	//populate the buffer with the actual data - optimised as static & for drawing
-	auto positionsLength = sizeof(positions) / sizeof(*positions);
-	glBufferData(GL_ARRAY_BUFFER, positionsLength * sizeof(float), positions, GL_STATIC_DRAW);
-
-	//using opengl core requires a vertex array before we specify the vertex attrib layout
-	unsigned int vao;
-	GLCall(glGenVertexArrays(1, &vao));
-	GLCall(glBindVertexArray(vao));
-
-	//describes the layout of an individual vertex (contains two floats)
-	GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0));
-	//specify that we are using this vertex array
-	GLCall(glEnableVertexAttribArray(0));
-
-
-
-}
-
-static void PrepareIndexBuffer() {
-	//Index Buffers in OpenGL
-	unsigned int indices[] = {
-		0, 1, 2,
-		2, 3, 0,
-	};
-	unsigned int ibo;
-	glGenBuffers(1, &ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	auto indicesLength = sizeof(indices) / sizeof(*indices);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesLength * sizeof(unsigned int), indices, GL_STATIC_DRAW);
-}
-
 static void UpdateIncrementExample(float& r, float& increment) {
 	if (r > 1.0f) {
 		increment = -0.05f;
@@ -199,45 +138,71 @@ int main(void)
 	if (glewInit() != GLEW_OK) {
 		throw;
 	}
-
-	std::cout << glGetString(GL_VERSION) << std::endl;
-
-	PrepareVertices();
-	PrepareIndexBuffer();
-
-	auto shaderSource = ParseShader("res/shaders/basic.shader");
-	auto programId = CreateShaderProgram(shaderSource.VertexSource, shaderSource.FragmentSource);
-	glUseProgram(programId);
-
-	//get reference to the 'uniform' in the shader called u_Color
-	int location_u_Color = glGetUniformLocation(programId, "u_Color");
-	ASSERT(location_u_Color != -1);
-
-	float r = 0.0f;
-	float increment = 0.05f;
-
-	/* Loop until the user closes the window */
-	while (!glfwWindowShouldClose(window))
 	{
-		/* Render here */
-		glClear(GL_COLOR_BUFFER_BIT);
+		std::cout << glGetString(GL_VERSION) << std::endl;
 
-		//set the variable in the shader code
-		glUniform4f(location_u_Color, r, 1.0f, 0.5f, 0.2f);
+		//triangle verticies
+		float positions[] = {
+			-0.5f, -0.5f,	//0
+			 0.5f,  -0.5f,	//1
+			 0.5f, 0.5f,	//2
+			 -0.5f, 0.5f,	//3
+		};
 
-		GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr));
+		VertexBuffer vb(positions, sizeof(positions) / sizeof(*positions) * sizeof(float));
 
-		UpdateIncrementExample(r, increment);
+		//using opengl core requires a vertex array before we specify the vertex attrib layout
+		unsigned int vao;
+		GLCall(glGenVertexArrays(1, &vao));
+		GLCall(glBindVertexArray(vao));
 
-		/* Swap front and back buffers */
-		glfwSwapBuffers(window);
+		//specify that we are using this vertex array
+		GLCall(glEnableVertexAttribArray(0));
+		//describes the layout of an individual vertex (contains two floats)
+		GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0));
+		vb.Unbind();
 
-		/* Poll for and process events */
-		glfwPollEvents();
+		//Index Buffers in OpenGL
+		unsigned int indices[] = {
+			0, 1, 2,
+			2, 3, 0,
+		};
+
+		IndexBuffer ib(indices, sizeof(indices) / sizeof(*indices));
+
+		auto shaderSource = ParseShader("res/shaders/basic.shader");
+		auto programId = CreateShaderProgram(shaderSource.VertexSource, shaderSource.FragmentSource);
+		glUseProgram(programId);
+
+		//get reference to the 'uniform' in the shader called u_Color
+		int location_u_Color = glGetUniformLocation(programId, "u_Color");
+		ASSERT(location_u_Color != -1);
+
+		float r = 0.0f;
+		float increment = 0.05f;
+
+		/* Loop until the user closes the window */
+		while (!glfwWindowShouldClose(window))
+		{
+			/* Render here */
+			glClear(GL_COLOR_BUFFER_BIT);
+
+			//set the variable in the shader code
+			glUniform4f(location_u_Color, r, 1.0f, 0.5f, 0.2f);
+
+			GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr));
+
+			UpdateIncrementExample(r, increment);
+
+			/* Swap front and back buffers */
+			glfwSwapBuffers(window);
+
+			/* Poll for and process events */
+			glfwPollEvents();
+		}
+
+		glDeleteProgram(programId);
 	}
-
-	glDeleteProgram(programId);
-
 	glfwTerminate();
 	return 0;
 }
