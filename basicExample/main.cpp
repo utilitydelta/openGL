@@ -5,10 +5,14 @@
 
 #include <iostream>
 
-static GLuint SetupTriangle() {
+static GLuint CreateVAO() {
 	//Create a vertex array object
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
+	return vao;
+}
+
+static void SetupVBO(GLuint vao) {
 	glBindVertexArray(vao);
 
 	//Create a vertex buffer object to store the data
@@ -34,11 +38,10 @@ static GLuint SetupTriangle() {
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), 0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)(2 * sizeof(float)));
 
-	//finished setup, can unbind
+	//finished buffer setup, can unbind
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 
-	return vao;
+	glBindVertexArray(0);
 }
 
 static GLuint CompileShader(const char* source, int type) {
@@ -118,6 +121,23 @@ static GLuint CreateProgram() {
 	return programId;
 }
 
+static GLuint SetupEBO(GLuint vao) {
+	glBindVertexArray(vao);
+
+	GLuint ebo;
+	glGenBuffers(1, &ebo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+
+	GLuint elements[] = {
+		0, 1, 2
+	};
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); //unbind elemtn array buf
+
+	glBindVertexArray(0); //unbind vao
+	return ebo;
+}
+
 int main(void)
 {
 	GLFWwindow* window;
@@ -157,7 +177,10 @@ int main(void)
 	}
 	std::cout << "Status: Using GLEW: " << glewGetString(GLEW_VERSION) << std::endl;
 
-	auto vao = SetupTriangle();
+	auto vao = CreateVAO();
+	SetupVBO(vao);
+	auto ebo = SetupEBO(vao);
+
 	auto programId = CreateProgram();
 
 	int red = 0;
@@ -173,6 +196,7 @@ int main(void)
 		//bind - what shader / data do we want to draw
 		glUseProgram(programId);
 		glBindVertexArray(vao);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
 		GLint uniColor = glGetUniformLocation(programId, "triangleColor");
 		glUniform4f(uniColor, red / 100.0f, green / 100.0f, 0.0, 1.0);
@@ -180,8 +204,8 @@ int main(void)
 		GLint uniScale = glGetUniformLocation(programId, "scaleFactor");
 		glUniform1f(uniScale, scaleFactor / 100.0f);
 
-		//issue the draw call
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		//element buffer based 
+		glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 
 		//unbind
 		glBindVertexArray(0);
